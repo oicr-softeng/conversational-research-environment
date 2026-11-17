@@ -147,3 +147,7 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Agent files that belong on one machine only (agentics)
+.claude/memory/
+.claude/settings.local.json
