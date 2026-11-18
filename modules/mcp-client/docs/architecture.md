@@ -89,7 +89,7 @@ sequenceDiagram
     end
 ```
 
-`refreshSurface()` runs the same read, from `discover()` onward, and replaces both the snapshot and the compiled validators. Host-core calls it at the start of each run, so a redeploy is seen even though `apps/mcp-server` marks its lists fresh for an hour.
+`refreshSurface()` runs the same read, from `discover()` onward, and replaces both the snapshot and the compiled validators. Host-core calls it at the start of each run, so a redeploy is seen even though a server may mark its lists fresh for a long time. Arranger's MCP server, for example, marks them fresh for an hour.
 
 A list the server does not advertise is not requested, and is recorded as empty.
 
@@ -147,7 +147,7 @@ sequenceDiagram
     end
 ```
 
-**Why `request()` instead of the SDK's `callTool()`:** `execute_query` declares an `outputSchema`, and its `input_required` reply has no `structuredContent`. With `tools/list` cached, `callTool()` throws `-32600` on that reply, and without the cache it returns the reply mistyped. Phase 0's S2 confirmed both ([results](../../../.dev/docs/mcp-host/phase0-results.md#s2-calltool-against-request)). So this module validates the final result itself.
+**Why `request()` instead of the SDK's `callTool()`:** when a tool declares an `outputSchema` and replies `input_required`, that reply has no `structuredContent`. With `tools/list` cached, `callTool()` throws `-32600` on that reply, and without the cache it returns the reply mistyped. Phase 0's S2 confirmed both against `execute_query` on Arranger's MCP server ([results](https://github.com/overture-stack/arranger/blob/main/.dev/docs/mcp-host/phase0-results.md#s2-calltool-against-request)). So this module validates the final result itself.
 
 A schema over `MAX_OUTPUT_SCHEMA_BYTES` (64 KiB) or deeper than `MAX_OUTPUT_SCHEMA_DEPTH` (32 levels) is never compiled, since it comes from the server. The tool still runs, and each of its results is `output_invalid`.
 
@@ -194,7 +194,7 @@ Points the diagram cannot show:
 
 ## One confirmation round in detail
 
-This is `execute_query` against `apps/mcp-server`, which asks one question, keyed `confirm`, before it runs a query. The shaded span is the part counted as `waitingMs`. Everything else is `wireMs`.
+Which questions a server asks, and how long it keeps a round's state, are the server's own choices. This example is one real exchange with one server: `execute_query` on Arranger's MCP server (`apps/mcp-server` in the Arranger repository), which asks one question, keyed `confirm`, before it runs a query. The shaded span is the part counted as `waitingMs`. Everything else is `wireMs`.
 
 ```mermaid
 sequenceDiagram
@@ -249,7 +249,7 @@ sequenceDiagram
     end
 ```
 
-A server gives the same error for a state that has expired, was forged, or belongs to another request. After a restart without `MCP_REQUEST_STATE_SECRET`, it gives that error for every earlier state too. The client cannot tell these cases apart. The host compares `waitedMs` with the server's window (600 s for `apps/mcp-server`) and, if it is over, says "probably expired".
+A server gives the same error for a state that has expired, was forged, or belongs to another request. Arranger's MCP server, restarted without `MCP_REQUEST_STATE_SECRET`, gives that error for every earlier state too. The client cannot tell these cases apart. The host compares `waitedMs` with the server's window (600 s for Arranger's MCP server) and, if it is over, says "probably expired".
 
 **Tested in** `client.test.ts` (answers, declines, aborts, expired state) and `confirmationLoop.test.ts` (withdrawn questions, refused state).
 

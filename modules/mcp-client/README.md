@@ -7,7 +7,7 @@ One connection to one MCP server over Streamable HTTP, for an MCP host. It wraps
 - resolves every call with an outcome instead of throwing;
 - snapshots the server's surface, with a hash that ignores its version and cache hints.
 
-Not published: the package is `private`, and it is moving to the CRE repository as `@overture-stack/mcp-client` (MCP Host Plan, Phase 5), which publishes it once its hardening entries in `.dev/tech-debt.md` are fixed.
+Not published: the package is `private` until its hardening entries in this repository's [tech debt](../../.dev/tech-debt.md) are fixed.
 
 - Design: [MCP Host Plan](../../.dev/docs/mcp-host/mcp-host-plan.md) §2.1
 - Architecture: [`mcp-client` Architecture](docs/architecture.md)
@@ -25,7 +25,7 @@ const client = await McpClient.connect({
 	inputResolver: async ({ message, requestedSchema, signal }) => askThePerson(message, requestedSchema, signal),
 });
 
-const outcome = await client.callTool('call-1', 'execute_query', args, {
+const outcome = await client.callTool('call-1', 'search_records', args, {
 	signal,
 	onRound: ({ round, requestState, keys }) => record(round, requestState, keys),
 });
