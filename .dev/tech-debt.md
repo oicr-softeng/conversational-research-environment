@@ -20,6 +20,15 @@
 **Fix:** Give the transport a `fetch` (its `fetch` option) that stops reading past a configured byte limit, and report that as `transport_error`. Test with an oversized `tools/list` and an oversized tool result.
 **Standalone:** yes
 
+### An elicitation's `requestedSchema` must have a depth and size limit
+
+**File:** `modules/mcp-client/src/confirmationLoop.ts` (`isFormQuestion`)
+**Severity:** blocks publishing `mcp-client` (MCP host plan §4.1), and must be fixed before the CRE desktop app ships, since users can add their own servers (plan §2.4)
+**Kind:** hardening
+**Issue:** A form-mode elicitation's `requestedSchema` comes from the server, and `isFormQuestion` checks only that it is an object. Host-core passes it unchanged to the input resolver and in the `INPUT_REQUIRED` event. A deeply nested schema from a buggy or hostile server could exhaust a form renderer that recurses over it. A tool's `outputSchema`, the same kind of untrusted schema, is already refused past `MAX_OUTPUT_SCHEMA_DEPTH` and `MAX_OUTPUT_SCHEMA_BYTES` in `outputValidation.ts`.
+**Fix:** Apply the same two limits to `requestedSchema` before the person is asked anything, and end the call as `input_failed` past either, as `formQuestions` does for a malformed request. Test with a schema past each limit.
+**Standalone:** yes
+
 ### `wireMs` overstates server time, which the evaluation harness would read it as
 
 **File:** `modules/mcp-client/src/outcomes.ts` (`CallTiming`), `modules/mcp-client/src/confirmationLoop.ts`
