@@ -18,6 +18,8 @@ release/
 
 # Tests
 coverage/
+# Transcripts from scripts/e2e.ts, which hold real dataset records
+scripts/results/
 test-results/
 playwright-report/
 blob-report/
