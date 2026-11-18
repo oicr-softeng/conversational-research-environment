@@ -30,6 +30,15 @@ A pin of `main` follows the newest commit instead, and a clone then reads its wo
 <!-- Rules for this project that agentics does not hold, including any override of an agentics rule. -->
 
 - Spelling: Canadian English, as agentics' `template/conventions/writing-style.md` § Spelling and language convention describes, in documentation, comments, string literals, commit messages and new identifiers.
+- GitHub URLs to this repository use `oicr-softeng/conversational-research-environment`. This overrides `AGENTS.overture.md`'s `https://github.com/overture-stack/<repo>/blob/main/...` form, since this repository is not under `overture-stack`.
+- The MCP host's rules for every component. Their reasoning is in `.dev/docs/mcp-host/mcp-host-plan.md` § 1 ("Rules for every component"):
+    - Dependencies point down only: `mcp-client` on the MCP SDK, `mcp-host-core` on `mcp-client` and `eventsource-parser`, and each app on `mcp-host-core`.
+    - The modules hold no Arranger knowledge. Neither depends on an `@overture-stack/*` package outside the pair, or names an Arranger tool.
+    - Model credentials and a person's MCP credentials stay in the CRE's main process. They never reach the renderer, which displays untrusted text.
+    - Each app reads its environment in one config module and passes the configuration in, per § Critical constraints.
+    - A server's text is untrusted unless the server is configured `trusted`. Only a trusted server's `instructions` enter the system prompt. Confirmation messages render as text, never HTML. Tool results are recorded verbatim.
+    - A server not flagged `containsOnlyOpenData` is the only server in its conversation. Host-core enforces this, and nothing may bypass it.
+    - Events are plain data, with no class instances or functions, so they cross Electron's IPC boundary and save into a notebook unchanged.
 
 ## Extension points
 
@@ -39,6 +48,9 @@ A pin of `main` follows the newest commit instead, and a clone then reads its wo
 
 <!-- What lives where, for an agent arriving with no context. -->
 
-- `.dev/`: working documents kept alongside the code: `roadmap.md`, `tech-debt.md`, and one session log per contributor per day in `sessions/`
+- `modules/mcp-client/`: `@overture-stack/mcp-client`, one connection to one MCP server over Streamable HTTP, with the server's confirmation loop
+- `modules/mcp-host-core/`: `@overture-stack/mcp-host-core`, the agent runtime: the model provider, the tool-calling loop, approvals and events. Its build and tests read `mcp-client`'s `dist/`
+- `scripts/`: `e2e.ts`, the End-to-End Check against a running Arranger, and the Ollama helpers it uses. Not a workspace, so the root `typecheck` and `lint` scripts cover it. Its transcripts go to the ignored `scripts/results/`, since they hold real dataset records
+- `.dev/`: working documents kept alongside the code: `roadmap.md`, `tech-debt.md`, one session log per contributor per day in `sessions/`, and design documents in `docs/`, such as the MCP host's plan in `docs/mcp-host/`
 - `.claude/settings.json`: Claude Code hook that blocks tool calls touching credential files
 - `DEVELOPMENT.md`: local setup and development guide
