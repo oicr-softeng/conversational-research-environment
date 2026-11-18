@@ -1,12 +1,10 @@
 /**
- * A minimal `/v1/chat/completions` caller over `fetch`, for the Phase 0 spikes only.
+ * A minimal `/v1/chat/completions` caller over `fetch`. `e2e.ts` uses its base-URL option and context-window check.
  *
- * Returns the raw HTTP status and body (or every streamed chunk) so the spikes record what the serving
- * stack sent rather than what a client library made of it. No environment variable is read here: the
+ * Returns the raw HTTP status and body (or every streamed chunk) so a caller sees what the serving stack
+ * sent rather than what a client library made of it. No environment variable is read here: the
  * base URL is an argument, defaulting to a local Ollama.
  */
-import { readFile } from 'node:fs/promises';
-
 export const DEFAULT_BASE_URL = 'http://localhost:11434/v1';
 
 /** `--base-url <url>` from the command line, or the local default. */
@@ -31,12 +29,6 @@ export const toOpenAiTools = (tools: McpTool[]) =>
 		type: 'function',
 		function: { name: tool.name, description: tool.description ?? '', parameters: tool.inputSchema },
 	}));
-
-/** The real `tools/list` result captured by `s2s5.ts`. */
-export const loadMcpTools = async (): Promise<McpTool[]> => {
-	const raw = await readFile(new URL('../results/tools.json', import.meta.url), 'utf8');
-	return (JSON.parse(raw) as { tools: McpTool[] }).tools;
-};
 
 export type ChatResponse =
 	| { kind: 'json'; status: number; durationMs: number; body: unknown }

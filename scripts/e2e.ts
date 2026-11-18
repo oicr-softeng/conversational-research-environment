@@ -1,16 +1,16 @@
 /**
  * An end-to-end chat over the whole stack: a model on Ollama, `mcp-host-core`'s loop and provider, `mcp-client`,
- * and a running `apps/mcp-server` in front of a real Arranger. Unlike the other scripts, nothing is stubbed: ES, the
- * search server and the MCP server must already be running (see the README beside this folder).
+ * and a running `apps/mcp-server` in front of a real Arranger. Nothing is stubbed: ES, the search server and the MCP
+ * server must already be running (see `.dev/docs/mcp-host/README.md` § End-to-End Check).
  *
- *   LOG_LEVEL=fatal npx tsx .dev/docs/mcp-host/scripts/e2e.ts --model gemma4:e4b
+ *   LOG_LEVEL=fatal npx tsx scripts/e2e.ts --model gemma4:e4b
  *
  * Options: --base-url, --model, --mcp-url, --policy ask|allow|deny, --context <tokens>, --resume <state file>,
  * --system-prompt <file>, --full. Commands at the prompt: /pending, /tools, /save <name>, /quit. Ctrl-C cancels a
- * run, or quits when none is active. Every event is written as one JSON line under `results/e2e/`.
+ * run, or quits when none is active. Every event is written as one JSON line under `scripts/results/e2e/`.
  *
- * Imports host-core from source, so the current branch is what runs; host-core imports `mcp-client` from its
- * `dist/`, so build that first. Not `mcp-cli chat`: just enough to watch the pieces work together.
+ * Imports host-core's build, so run `npm run build` first. Not `mcp-cli chat`: just enough to watch the pieces work
+ * together.
  */
 import { createWriteStream } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -24,9 +24,9 @@ import {
 	McpHost,
 	OpenAiCompatibleProvider,
 	renderToolResult,
-} from '../../../../modules/mcp-host-core/src/index.ts';
+} from '@overture-stack/mcp-host-core';
 
-import { assertContextLength, baseUrlFromArgs } from './ollama.ts';
+import { assertContextLength, baseUrlFromArgs } from './ollama.js';
 
 const option = (name: string) => {
 	const index = process.argv.indexOf(`--${name}`);
@@ -46,12 +46,13 @@ if (!Object.values(APPROVAL_DECISIONS).includes(policy)) {
 	throw new Error(`--policy must be one of ${Object.values(APPROVAL_DECISIONS).join(', ')}`);
 }
 
-const OUT = new URL('../results/e2e/', import.meta.url);
+const OUT = new URL('./results/e2e/', import.meta.url);
 await mkdir(OUT, { recursive: true });
 const logUrl = new URL(`${new Date().toISOString().replaceAll(':', '-')}.jsonl`, OUT);
 const log = createWriteStream(logUrl, { flags: 'a' });
 
 /** Server and model text, with control characters removed so it cannot drive the terminal. */
+// eslint-disable-next-line no-control-regex -- deliberate: control characters are what this strips
 const plain = (text: string) => text.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '');
 const clip = (text: string) => (full || text.length <= 300 ? text : `${text.slice(0, 300)}… (${text.length} chars)`);
 
@@ -112,6 +113,7 @@ const onEvent = (event: HostEvent) => {
 		case EVENT_TYPES.APPROVAL_REQUIRED:
 			console.log(`[approval_required] ${event.server}/${event.tool} ${clip(JSON.stringify(event.arguments))}`);
 			ask(event.id, 'Allow this call? [y/N] ', (reply) =>
+				// eslint-disable-next-line @typescript-eslint/no-use-before-define -- runs only after `McpHost.create` has returned
 				console.log(`[respond] ${host.respond(event.id, { approve: reply === 'y' })}`),
 			);
 			return;
@@ -124,6 +126,7 @@ const onEvent = (event: HostEvent) => {
 					reply === 'a'
 						? { action: 'accept' as const, content: { confirm: true } }
 						: { action: reply === 'c' ? ('cancel' as const) : ('decline' as const) };
+				// eslint-disable-next-line @typescript-eslint/no-use-before-define -- runs only after `McpHost.create` has returned
 				console.log(`[respond] ${answer.action}: ${host.respond(event.questionId, answer)}`);
 			});
 			return;
@@ -154,6 +157,8 @@ const onEvent = (event: HostEvent) => {
 		case EVENT_TYPES.INPUT_STATE_REJECTED:
 		case EVENT_TYPES.TOOLS_CHANGED:
 		case EVENT_TYPES.CONTENT_CARRIED: {
+			// `runId`, `seq` and `at` are named only to leave them out of `rest`, which is printed.
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const { type, runId, seq, at, ...rest } = event;
 			console.log(`[${type}] ${clip(plain(JSON.stringify(rest)))}`);
 			return;
