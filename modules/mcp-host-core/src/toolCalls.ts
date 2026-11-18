@@ -1,6 +1,6 @@
 // Running a reply's tool calls on a run's behalf: routing, the data-crossing guard, approval, the call itself, and
 // its tool message. Also the bridge that puts a server's question to the consumer while a call waits on it.
-import { type ElicitResult, type InputQuestion } from '@overture-stack/arranger-mcp-client';
+import { type ElicitResult, type InputQuestion } from '@overture-stack/mcp-client';
 
 import { type Answer, approvalAnswer, confirmationAnswer, type PendingQuestion, type Settled } from './answers.js';
 import {

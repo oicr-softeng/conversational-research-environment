@@ -1,6 +1,6 @@
 # mcp-client: Architecture
 
-How `@overture-stack/arranger-mcp-client` works inside, drawn from its source. The [README](../README.md) covers usage, options and the outcome table. The [MCP Host Plan](../../../.dev/docs/mcp-host/mcp-host-plan.md) §2.1 records why each choice was made. For where this module sits among the other pieces, see [MCP Host: Architecture](../../../.dev/docs/mcp-host/architecture.md).
+How `@overture-stack/mcp-client` works inside, drawn from its source. The [README](../README.md) covers usage, options and the outcome table. The [MCP Host Plan](../../../.dev/docs/mcp-host/mcp-host-plan.md) §2.1 records why each choice was made. For where this module sits among the other pieces, see [MCP Host: Architecture](../../../.dev/docs/mcp-host/architecture.md).
 
 Each section names the functions it draws and the test files that cover them.
 
@@ -12,7 +12,7 @@ A host creates one `McpClient` per server. `McpClient` owns the SDK's `Client` a
 flowchart LR
     host["Host<br/>(mcp-host-core)"]
 
-    subgraph module["@overture-stack/arranger-mcp-client"]
+    subgraph module["@overture-stack/mcp-client"]
         client["McpClient<br/>client.ts"]
         loop["runConfirmationLoop<br/>confirmationLoop.ts"]
         classify["classifyError<br/>outcomes.ts"]

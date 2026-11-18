@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, mock, suite, test } from 'node:test';
 
-import { McpClient } from '@overture-stack/arranger-mcp-client';
+import { McpClient } from '@overture-stack/mcp-client';
 
 import { createHarness, type Harness, name, withHost, withServer } from '#testing/harness.js';
 import { call, calls, say } from '#testing/scriptedProvider.js';

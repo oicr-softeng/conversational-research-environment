@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'node:test';
 
-import { type SurfaceSnapshot, type Tool } from '@overture-stack/arranger-mcp-client';
+import { type SurfaceSnapshot, type Tool } from '@overture-stack/mcp-client';
 
 import {
 	buildRegistry,

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, mock, suite, test } from 'node:test';
 
-import { InsecureTransportError, McpClient } from '@overture-stack/arranger-mcp-client';
+import { InsecureTransportError, McpClient } from '@overture-stack/mcp-client';
 
 import { createHarness, name, outputs, withHost, withServer } from '#testing/harness.js';
 import { chunk, events, startModelServer, usageChunk, writeStream } from '#testing/modelServer.js';

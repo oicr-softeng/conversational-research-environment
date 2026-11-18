@@ -1,4 +1,4 @@
-# @overture-stack/arranger-mcp-client
+# @overture-stack/mcp-client
 
 One connection to one MCP server over Streamable HTTP, for an MCP host. It wraps the MCP SDK's `Client` (`@modelcontextprotocol/client` 2.3.1 or later), and:
 
@@ -15,7 +15,7 @@ Not published: the package is `private`, and it is moving to the CRE repository 
 ## Usage
 
 ```ts
-import { McpClient } from '@overture-stack/arranger-mcp-client';
+import { McpClient } from '@overture-stack/mcp-client';
 
 const client = await McpClient.connect({
 	url: 'https://mcp.example.org/mcp',

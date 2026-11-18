@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { type SurfaceSnapshot, type Tool } from '@overture-stack/arranger-mcp-client';
+import { type SurfaceSnapshot, type Tool } from '@overture-stack/mcp-client';
 
 import { LEFT_OUT_REASONS } from './constants.js';
 import { type ObjectValues } from './utils.js';

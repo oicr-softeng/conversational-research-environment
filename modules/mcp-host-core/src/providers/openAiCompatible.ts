@@ -1,6 +1,6 @@
 // Host-core's own client for OpenAI-compatible Chat Completions. It reads no environment variables and never
 // retries: a failure is reported once, as data.
-import { assertCredentialTransport } from '@overture-stack/arranger-mcp-client';
+import { assertCredentialTransport } from '@overture-stack/mcp-client';
 import { createParser } from 'eventsource-parser';
 
 import {

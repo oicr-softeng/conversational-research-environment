@@ -1,10 +1,5 @@
 // A conversation's connections: one `McpClient` per configured server, and re-reading their surfaces.
-import {
-	type ElicitResult,
-	type InputQuestion,
-	McpClient,
-	ReconnectRequiredError,
-} from '@overture-stack/arranger-mcp-client';
+import { type ElicitResult, type InputQuestion, McpClient, ReconnectRequiredError } from '@overture-stack/mcp-client';
 
 import { type McpHostOptions, type ServerConfig } from './options.js';
 import { type SurfaceServer } from './registry.js';

@@ -1,5 +1,5 @@
 // What a consumer configures an `McpHost` with, and the checks `McpHost.create` runs on it before anything connects.
-import { assertCredentialTransport, type McpClientOptions } from '@overture-stack/arranger-mcp-client';
+import { assertCredentialTransport, type McpClientOptions } from '@overture-stack/mcp-client';
 
 import { type ApprovalCall } from './answers.js';
 import { type APPROVAL_DECISIONS } from './constants.js';

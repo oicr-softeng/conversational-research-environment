@@ -4,14 +4,14 @@
 	"version": "0.0.0-dev",
 	"private": true,
 	"license": "AGPL-3.0-or-later",
-	"homepage": "https://github.com/overture-stack/arranger#readme",
+	"homepage": "https://github.com/oicr-softeng/conversational-research-environment#readme",
 	"bugs": {
-		"url": "https://github.com/overture-stack/arranger/issues"
+		"url": "https://github.com/oicr-softeng/conversational-research-environment/issues"
 	},
 	"repository": {
 		"directory": "modules/mcp-host-core",
 		"type": "git",
-		"url": "git+https://github.com/overture-stack/arranger.git"
+		"url": "git+https://github.com/oicr-softeng/conversational-research-environment.git"
 	},
 	"main": "dist/index.cjs",
 	"types": "dist/index.d.ts",
@@ -29,13 +29,14 @@
 	"scripts": {
 		"build": "wireit",
 		"clear:dist": "rm -rf dist",
+		"lint": "eslint .",
 		"test": "tsx --test",
 		"test:watch": "npm test -- --watch",
 		"typecheck": "tsc --noEmit",
 		"watch": "WIREIT_WATCH=true npm run build"
 	},
 	"dependencies": {
-		"@overture-stack/arranger-mcp-client": "file:../mcp-client",
+		"@overture-stack/mcp-client": "0.0.0-dev",
 		"eventsource-parser": "^3.1.0"
 	},
 	"devDependencies": {

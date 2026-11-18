@@ -1,16 +1,17 @@
 {
-	"name": "@overture-stack/arranger-mcp-client",
+	"name": "@overture-stack/mcp-client",
 	"description": "One connection to one MCP server over Streamable HTTP, with a manual confirmation loop (see README: not published yet)",
 	"version": "0.0.0-dev",
 	"private": true,
-	"homepage": "https://github.com/overture-stack/arranger#readme",
+	"license": "AGPL-3.0-or-later",
+	"homepage": "https://github.com/oicr-softeng/conversational-research-environment#readme",
 	"bugs": {
-		"url": "https://github.com/overture-stack/arranger/issues"
+		"url": "https://github.com/oicr-softeng/conversational-research-environment/issues"
 	},
 	"repository": {
 		"directory": "modules/mcp-client",
 		"type": "git",
-		"url": "git+https://github.com/overture-stack/arranger.git"
+		"url": "git+https://github.com/oicr-softeng/conversational-research-environment.git"
 	},
 	"main": "dist/index.cjs",
 	"types": "dist/index.d.ts",
@@ -28,6 +29,7 @@
 	"scripts": {
 		"build": "wireit",
 		"clear:dist": "rm -rf dist",
+		"lint": "eslint .",
 		"test": "tsx --test",
 		"test:watch": "npm test -- --watch",
 		"typecheck": "tsc --noEmit",

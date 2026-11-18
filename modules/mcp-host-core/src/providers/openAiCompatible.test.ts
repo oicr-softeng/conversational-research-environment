@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, suite, test } from 'node:test';
 
-import { InsecureTransportError } from '@overture-stack/arranger-mcp-client';
+import { InsecureTransportError } from '@overture-stack/mcp-client';
 
 import { chunk, events, type ModelServer, startModelServer, usageChunk, writeStream } from '#testing/modelServer.js';
 

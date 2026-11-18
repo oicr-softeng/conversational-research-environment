@@ -1,5 +1,5 @@
 // Every tool call gets one tool message, with fixed wording so transcripts compare.
-import { type CallOutcome, type CallToolResult } from '@overture-stack/arranger-mcp-client';
+import { type CallOutcome, type CallToolResult } from '@overture-stack/mcp-client';
 
 import { type DENIED_BY, HOST_OUTCOMES } from './constants.js';
 import { type ObjectValues } from './utils.js';

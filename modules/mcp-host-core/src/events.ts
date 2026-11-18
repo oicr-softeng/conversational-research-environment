@@ -1,5 +1,5 @@
 // Every event is plain data, so it crosses IPC unchanged and saves to a file as it is.
-import { type ElicitResult, type McpClientOptions, type ServerCapabilities } from '@overture-stack/arranger-mcp-client';
+import { type ElicitResult, type McpClientOptions, type ServerCapabilities } from '@overture-stack/mcp-client';
 
 import { type ApprovalCall, type PendingQuestion } from './answers.js';
 import { type APPROVAL_DECISIONS, type DONE_REASONS, type EVENT_TYPES } from './constants.js';

@@ -1,4 +1,4 @@
-import { type ElicitResult, type InputQuestion } from '@overture-stack/arranger-mcp-client';
+import { type ElicitResult, type InputQuestion } from '@overture-stack/mcp-client';
 
 import { type Answer, type PendingQuestion, QuestionTable, type RespondResult } from './answers.js';
 import { Connections } from './connections.js';

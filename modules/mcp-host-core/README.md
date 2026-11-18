@@ -1,6 +1,6 @@
 # @overture-stack/mcp-host-core
 
-The agent runtime of an MCP host. One instance runs one conversation: it connects to every configured MCP server with `@overture-stack/arranger-mcp-client`, drives a model through a tool-calling loop, keeps the conversation within the model's context window, and hands each approval and server confirmation to the consumer.
+The agent runtime of an MCP host. One instance runs one conversation: it connects to every configured MCP server with `@overture-stack/mcp-client`, drives a model through a tool-calling loop, keeps the conversation within the model's context window, and hands each approval and server confirmation to the consumer.
 
 Everything the host reports is a plain-data event, and a conversation's state is serializable and model-neutral, so it can be saved and resumed.
 
