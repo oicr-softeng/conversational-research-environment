@@ -42,6 +42,15 @@
 
 ## modules/mcp-host-core
 
+### Both modules must accept a `fetch`, so the CRE can pass Electron's `net.fetch`
+
+**File:** `modules/mcp-host-core/src/providers/openAiCompatible.ts` (both `fetch` calls), `modules/mcp-client/src/client.ts` (`transportOptions`)
+**Severity:** must be fixed before the CRE desktop app ships, since institutional networks commonly need a proxy or trust their own certificate authority
+**Kind:** configuration
+**Issue:** The provider calls the global `fetch`, and `mcp-client` builds its transport with only its auth options, so neither takes a `fetch` from its caller. The CRE's main process needs to pass Electron's `net.fetch`, which uses the operating system's proxy settings and certificate store. Node's own `fetch` uses neither, so on such a network, requests to the model and to MCP servers can fail where the person's browser succeeds.
+**Fix:** Add a `fetch` option to host-core, passed through to the provider and to the transport's own `fetch` option in `mcp-client`, with the global `fetch` as the default. Before relying on `net.fetch`, check that it honours `redirect: 'manual'`, which the provider sets so that a redirect is never followed with the conversation, and that it streams response bodies the way the provider reads them. The fix for "Responses from a server must have a size limit" is a `fetch` wrapper too, so the two compose.
+**Standalone:** yes
+
 ### Trim the exported surface before `mcp-host-core` is published
 
 **File:** `modules/mcp-host-core/src/index.ts`
@@ -76,4 +85,23 @@
 **Kind:** model-facing wording
 **Issue:** Every `denied` outcome gets "The user declined the call", whether `by` is `person`, `timeout`, `policy` or `policy_error`, so a call the policy denied without asking anyone tells the model a person refused it.
 **Fix:** Give `denied` a fixed wording for each `by`, such as "The call was not permitted" for a policy, so the model is told what happened and transcripts still compare.
+**Standalone:** yes
+
+## Dependencies
+
+### `npm audit` baseline, established 2026-11-19
+
+**Severity:** informational, since neither advisory reaches the shipped app
+**Kind:** reference
+**Issue:** `npm audit` reports two advisories, both in build tools, and none in the production tree:
+
+| Scope                          | high | low | total |
+| ------------------------------ | ---- | --- | ----- |
+| Full tree                      | 4    | 1   | 5     |
+| Production only (`--omit=dev`) | 0    | 0   | 0     |
+
+- **`image-size`, high ([GHSA-w3rx-r6r6-pgpr](https://github.com/advisories/GHSA-w3rx-r6r6-pgpr)), no fix available:** its ICNS parser can loop forever. It counts four times, once for each package in the chain from `@electron-forge/maker-dmg` through `electron-installer-dmg` and `appdmg`. The DMG maker runs it only at build time, on this repository's own icons.
+- **`esbuild` 0.27.7 under `tsup`, low ([GHSA-g7r4-m6w7-qqqr](https://github.com/advisories/GHSA-g7r4-m6w7-qqqr)):** it concerns esbuild's development server on Windows, which `tsup` builds never start. The affected range is 0.27.3 to 0.28.0.
+
+**Fix:** For `esbuild`, either `npm audit fix`, which installs 0.27.2 within `tsup` 8.5.1's `^0.27.0`, or an upgrade to `tsup` 9, which asks for `^0.28.2`. For `image-size`, nothing until `appdmg` depends on a fixed version. Re-run `npm audit` and `npm audit --omit=dev` after either change, and update this baseline.
 **Standalone:** yes
