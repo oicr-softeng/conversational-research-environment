@@ -7,5 +7,4 @@ export default defineConfig({
 	format: ['esm', 'cjs'],
 	outDir: 'dist',
 	sourcemap: true,
-	target: 'node24',
 });
