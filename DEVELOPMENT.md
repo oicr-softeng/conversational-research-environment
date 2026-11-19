@@ -32,9 +32,9 @@ Start the app in development, from the repository root:
 npm start -w apps/desktop
 ```
 
-`npm run package -w apps/desktop` packages it, signed ad-hoc, into `apps/desktop/out/`.
+`npm run package -w apps/desktop` packages it, signed ad-hoc, into `apps/desktop/out/`. `npm run make -w apps/desktop` also builds a ZIP and a DMG from the package, into `apps/desktop/out/make/`.
 
-A shell started by an Electron-based program, such as an editor extension's terminal, can inherit `ELECTRON_RUN_AS_NODE=1`, which makes Electron run as plain Node. Prefix either command with `env -u ELECTRON_RUN_AS_NODE` there.
+A shell started by an Electron-based program, such as an editor extension's terminal, can inherit `ELECTRON_RUN_AS_NODE=1`, which makes Electron run as plain Node. Prefix any of these commands with `env -u ELECTRON_RUN_AS_NODE` there.
 
 The app is a shell so far. To watch both modules work together against a live model and MCP server, run the [End-to-End Check](.dev/docs/mcp-host/README.md#end-to-end-check). It needs a running Arranger with its MCP server, and Ollama.
 

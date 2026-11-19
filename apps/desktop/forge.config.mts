@@ -36,7 +36,8 @@ const config: ForgeConfig = {
 	makers: [
 		// Squirrel.Mac updates from the ZIP
 		new MakerZIP({}, ['darwin']),
-		new MakerDMG({}, ['darwin']),
+		// The mounted volume's name, which `macos-alias` limits to 27 characters, so not the full product name
+		new MakerDMG({ title: 'Overture CRE' }, ['darwin']),
 	],
 	plugins: [
 		new VitePlugin({
@@ -68,6 +69,8 @@ const config: ForgeConfig = {
 			[FuseV1Options.EnableNodeCliInspectArguments]: false,
 			[FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
 			[FuseV1Options.OnlyLoadAppFromAsar]: true,
+			// The renderer loads from the app's own scheme, so `file://` needs none of its extra privileges
+			[FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
 		}),
 	],
 };
