@@ -1,31 +1,53 @@
-import type { ForgeConfig } from '@electron-forge/shared-types';
-import { MakerSquirrel } from '@electron-forge/maker-squirrel';
-import { MakerZIP } from '@electron-forge/maker-zip';
-import { MakerDeb } from '@electron-forge/maker-deb';
-import { MakerRpm } from '@electron-forge/maker-rpm';
-import { VitePlugin } from '@electron-forge/plugin-vite';
-import { FusesPlugin } from '@electron-forge/plugin-fuses';
+import path from 'node:path';
+
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import { MakerDMG } from '@electron-forge/maker-dmg';
+import { MakerZIP } from '@electron-forge/maker-zip';
+import { FusesPlugin } from '@electron-forge/plugin-fuses';
+import { VitePlugin } from '@electron-forge/plugin-vite';
+import type { ForgeConfig } from '@electron-forge/shared-types';
+
+/**
+ * `-` signs ad-hoc, until a Developer ID certificate exists.
+ * A Developer ID build replaces it with that certificate's identity, which also drops `disable-library-validation`.
+ */
+const signingIdentity = '-';
+const isAdHoc = signingIdentity === '-';
+
+/**
+ * Every binary is given these entitlements explicitly.
+ * Without them, `@electron/osx-sign` applies its own defaults, which include camera, microphone, Bluetooth, USB,
+ * printing, location and photo-library entitlements (`.dev/docs/mcp-host-packaging-spikes.md` § 3).
+ */
+const entitlements = path.join(import.meta.dirname, 'entitlements', isAdHoc ? 'ad-hoc.plist' : 'developer-id.plist');
 
 const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
+		osxSign: {
+			identity: signingIdentity,
+			identityValidation: !isAdHoc,
+			optionsForFile: () => ({ entitlements, hardenedRuntime: true }),
+			// `@electron/packager` sets this to `true` when it is left out, and a signing failure then only warns
+			continueOnError: false,
+		},
 	},
 	rebuildConfig: {},
-	makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerRpm({}), new MakerDeb({})],
+	makers: [
+		// Squirrel.Mac updates from the ZIP
+		new MakerZIP({}, ['darwin']),
+		new MakerDMG({}, ['darwin']),
+	],
 	plugins: [
 		new VitePlugin({
-			// `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
-			// If you are familiar with Vite configuration, it will look really familiar.
 			build: [
 				{
-					// `entry` is just an alias for `build.lib.entry` in the corresponding file of `config`.
-					entry: 'src/main.ts',
+					entry: 'src/main/main.ts',
 					config: 'vite.main.config.mts',
 					target: 'main',
 				},
 				{
-					entry: 'src/preload.ts',
+					entry: 'src/preload/preload.ts',
 					config: 'vite.preload.config.mts',
 					target: 'preload',
 				},
@@ -37,8 +59,7 @@ const config: ForgeConfig = {
 				},
 			],
 		}),
-		// Fuses are used to enable/disable various Electron functionality
-		// at package time, before code signing the application
+		// Fuses are set at package time, before the app is signed
 		new FusesPlugin({
 			version: FuseVersion.V1,
 			[FuseV1Options.RunAsNode]: false,

@@ -1,14 +1,20 @@
 {
+	"$schema": "https://json.schemastore.org/tsconfig",
 	"compilerOptions": {
-		"target": "ESNext",
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"jsx": "react-jsx",
 		"module": "preserve",
 		"moduleResolution": "bundler",
-		"allowJs": true,
+		"noEmit": true,
+		"noImplicitReturns": true,
+		"noUncheckedIndexedAccess": true,
+		"resolveJsonModule": true,
 		"skipLibCheck": true,
-		"esModuleInterop": true,
-		"noImplicitAny": true,
 		"sourceMap": true,
-		"resolveJsonModule": true
+		"strict": true,
+		"target": "ESNext",
+		"verbatimModuleSyntax": true
 	},
-	"include": ["src/**/*", "*.ts", "*.mts"]
+	"include": ["src/**/*", "*.ts", "*.mts", "eslint.config.js"]
 }

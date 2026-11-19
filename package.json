@@ -11,6 +11,7 @@
 		"node": "^24"
 	},
 	"workspaces": [
+		"apps/desktop",
 		"modules/mcp-client",
 		"modules/mcp-host-core"
 	],
