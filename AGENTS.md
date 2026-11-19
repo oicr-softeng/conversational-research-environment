@@ -35,8 +35,13 @@ A pin of `main` follows the newest commit instead, and a clone then reads its wo
     - Dependencies point down only: `mcp-client` on the MCP SDK, `mcp-host-core` on `mcp-client` and `eventsource-parser`, and each app on `mcp-host-core`.
     - The modules hold no Arranger knowledge. Neither depends on an `@overture-stack/*` package outside the pair, or names an Arranger tool.
     - Model credentials and a person's MCP credentials stay in the CRE's main process. They never reach the renderer, which displays untrusted text.
-    - Each app reads its environment in one config module and passes the configuration in, per § Critical constraints.
-    - A server's text is untrusted unless the server is configured `trusted`. Only a trusted server's `instructions` enter the system prompt. Confirmation messages render as text, never HTML. Tool results are recorded verbatim.
+    - Each app reads its environment in one config module and passes the configuration in. The modules read no environment variables and no files, including through a dependency.
+    - Model text is untrusted. A server's text is untrusted too, unless the server is configured `trusted`:
+        - `trusted` is off by default, so a server the person adds starts untrusted. The desktop app's shipped configuration sets it.
+        - Only a trusted server's `instructions` enter the system prompt, and only a trusted server's prompts can start a conversation.
+        - Everything else a server sends stays labelled as tool output.
+        - Confirmation messages render as text, never HTML.
+        - Tool results are recorded verbatim.
     - A server not flagged `containsOnlyOpenData` is the only server in its conversation. Host-core enforces this, and nothing may bypass it.
     - Events are plain data, with no class instances or functions, so they cross Electron's IPC boundary and save into a notebook unchanged.
 
