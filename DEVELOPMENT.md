@@ -2,14 +2,15 @@
 
 ## Repository structure
 
-| Path                     | Holds                                                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `modules/mcp-client/`    | `@overture-stack/mcp-client`: one connection to one MCP server over Streamable HTTP, with the server's confirmation loop |
-| `modules/mcp-host-core/` | `@overture-stack/mcp-host-core`: the agent runtime, with the model provider, the tool-calling loop, approvals and events |
-| `scripts/`               | `e2e.ts`, a chat through both modules against a running Arranger, and the Ollama helpers it uses                         |
-| `.dev/`                  | Working documents: the roadmap, tracked tech debt, session logs, and design documents under `.dev/docs/`                 |
+| Path                     | Holds                                                                                                                            |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/desktop/`          | `@overture-stack/conversational-research-environment`: the CRE's Electron app, with `src/main`, `src/preload` and `src/renderer` |
+| `modules/mcp-client/`    | `@overture-stack/mcp-client`: one connection to one MCP server over Streamable HTTP, with the server's confirmation loop         |
+| `modules/mcp-host-core/` | `@overture-stack/mcp-host-core`: the agent runtime, with the model provider, the tool-calling loop, approvals and events         |
+| `scripts/`               | `e2e.ts`, a chat through both modules against a running Arranger, and the Ollama helpers it uses                                 |
+| `.dev/`                  | Working documents: the roadmap, tracked tech debt, session logs, and design documents under `.dev/docs/`                         |
 
-Both packages are private npm workspaces, so nothing here is published. The Electron app, `apps/desktop`, is not built yet.
+All three are private npm workspaces, so nothing here is published.
 
 ## Prerequisites
 
@@ -25,20 +26,30 @@ npm ci
 
 ## Running the project
 
-There is no app to start yet. To watch both modules work together against a live model and MCP server, run the [End-to-End Check](.dev/docs/mcp-host/README.md#end-to-end-check). It needs a running Arranger with its MCP server, and Ollama.
+Start the app in development, from the repository root:
+
+```sh
+npm start -w apps/desktop
+```
+
+`npm run package -w apps/desktop` packages it, signed ad-hoc, into `apps/desktop/out/`. `npm run make -w apps/desktop` also builds a ZIP and a DMG from the package, into `apps/desktop/out/make/`.
+
+A shell started by an Electron-based program, such as an editor extension's terminal, can inherit `ELECTRON_RUN_AS_NODE=1`, which makes Electron run as plain Node. Prefix any of these commands with `env -u ELECTRON_RUN_AS_NODE` there.
+
+The app is a shell so far. To watch both modules work together against a live model and MCP server, run the [End-to-End Check](.dev/docs/mcp-host/README.md#end-to-end-check). It needs a running Arranger with its MCP server, and Ollama.
 
 ## Running tests
 
 Run each from the repository root:
 
-| Command             | Covers                                                                                                 |
-| ------------------- | ------------------------------------------------------------------------------------------------------ |
-| `npm run build`     | Builds both modules, `mcp-client` first, since host-core reads its `dist/`                             |
-| `npm run typecheck` | Builds, then type-checks both modules and `scripts/`, so `e2e.ts` is checked against host-core's build |
-| `npm test`          | Builds, then runs both modules' tests                                                                  |
-| `npm run lint`      | Lints both modules and `scripts/` with ESLint                                                          |
+| Command             | Covers                                                                                                          |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `npm run build`     | Builds both modules, `mcp-client` first, since host-core reads its `dist/`                                      |
+| `npm run typecheck` | Builds, then type-checks the app, both modules and `scripts/`, so `e2e.ts` is checked against host-core's build |
+| `npm test`          | Builds, then runs the tests of the app's main process and both modules                                          |
+| `npm run lint`      | Lints the app, both modules and `scripts/` with ESLint                                                          |
 
-`npx prettier --check modules scripts` checks formatting.
+`npx prettier --check apps modules scripts` checks formatting.
 
 **Run all four before opening a pull request.** No CI runs them yet.
 

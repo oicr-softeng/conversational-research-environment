@@ -1,0 +1,43 @@
+{
+	"name": "@overture-stack/conversational-research-environment",
+	"productName": "Conversational Research Environment",
+	"version": "0.0.0-dev",
+	"private": true,
+	"description": "The Conversational Research Environment's desktop app, built on mcp-host-core (not published)",
+	"license": "AGPL-3.0-or-later",
+	"repository": {
+		"directory": "apps/desktop",
+		"type": "git",
+		"url": "git+https://github.com/oicr-softeng/conversational-research-environment.git"
+	},
+	"type": "module",
+	"main": ".vite/build/main.cjs",
+	"scripts": {
+		"start": "electron-forge start",
+		"package": "electron-forge package",
+		"make": "electron-forge make",
+		"lint": "eslint .",
+		"test": "tsx --test 'src/main/**/*.test.ts'",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@overture-stack/mcp-host-core": "0.0.0-dev",
+		"react": "^19.3.1",
+		"react-dom": "^19.3.1"
+	},
+	"devDependencies": {
+		"@electron-forge/cli": "^8.0.1",
+		"@electron-forge/maker-dmg": "^8.0.1",
+		"@electron-forge/maker-zip": "^8.0.1",
+		"@electron-forge/plugin-fuses": "^8.0.1",
+		"@electron-forge/plugin-vite": "^8.0.1",
+		"@electron/fuses": "^2.1.3",
+		"@types/react": "^19.3.0",
+		"@types/react-dom": "^19.3.0",
+		"@vitejs/plugin-react": "^6.3.0",
+		"electron": "45.3.4",
+		"tsx": "^4.19.2",
+		"typescript": "^5.8.2",
+		"vite": "^8.3.8"
+	}
+}
