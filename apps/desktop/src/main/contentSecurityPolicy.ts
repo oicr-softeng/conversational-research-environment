@@ -5,7 +5,12 @@ const RESTRICTIONS = ["object-src 'none'", "base-uri 'none'", "form-action 'none
 /**
  * The packaged renderer's policy: nothing remote, served in the response's headers, where the page cannot remove it.
  */
-export const PACKAGED_POLICY = ["default-src 'self'", ...RESTRICTIONS].join('; ');
+export const PACKAGED_POLICY = [
+	"default-src 'self'",
+	"require-trusted-types-for 'script'",
+	"trusted-types 'none'",
+	...RESTRICTIONS,
+].join('; ');
 
 /**
  * In development, the page comes from Vite's server, which also needs:

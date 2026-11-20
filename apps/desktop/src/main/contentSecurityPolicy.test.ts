@@ -29,6 +29,12 @@ suite('PACKAGED_POLICY', () => {
 		assert.deepEqual(policy.get('form-action'), ["'none'"]);
 		assert.deepEqual(policy.get('frame-ancestors'), ["'none'"]);
 	});
+
+	test('requires Trusted Types for every script sink, with no policy allowed', () => {
+		const policy = directives(PACKAGED_POLICY);
+		assert.deepEqual(policy.get('require-trusted-types-for'), ["'script'"]);
+		assert.deepEqual(policy.get('trusted-types'), ["'none'"]);
+	});
 });
 
 suite('developmentPolicy', () => {
