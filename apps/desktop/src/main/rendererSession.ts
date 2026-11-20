@@ -9,8 +9,9 @@ import { APP_SCHEME, isFromOrigins, originOf, requestOrigins } from './origins.j
 /**
  * The renderer's own session, apart from the default one.
  * Its request filter then constrains only the renderer, not the main process's own `net` requests.
+ * Kept in memory: anything that must outlast a quit is saved by the main process, encrypted.
  */
-const RENDERER_PARTITION = 'persist:renderer';
+const RENDERER_PARTITION = 'renderer';
 
 const notFound = () => new Response('Not found', { status: 404 });
 
