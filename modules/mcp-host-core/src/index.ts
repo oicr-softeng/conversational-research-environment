@@ -1,5 +1,5 @@
-// `create` and the provider throw it, so a consumer can catch it without depending on mcp-client.
-export { InsecureTransportError } from '@overture-stack/mcp-client';
+// `create` and the provider throw these, and take a `Fetch`, so a consumer needs no dependency on mcp-client.
+export { type Fetch, InsecureTransportError, UnsupportedSchemeError } from '@overture-stack/mcp-client';
 export {
 	type Answer,
 	type PendingApproval,

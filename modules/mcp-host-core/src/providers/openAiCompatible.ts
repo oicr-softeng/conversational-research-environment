@@ -1,6 +1,6 @@
 // Host-core's own client for OpenAI-compatible Chat Completions. It reads no environment variables and never
 // retries: a failure is reported once, as data.
-import { assertCredentialTransport } from '@overture-stack/mcp-client';
+import { assertCredentialTransport, assertHttpScheme, type Fetch } from '@overture-stack/mcp-client';
 import { createParser } from 'eventsource-parser';
 
 import {
@@ -52,6 +52,13 @@ export type OpenAiCompatibleOptions = {
 	 * throws `InsecureTransportError`.
 	 */
 	allowInsecureHttp?: boolean;
+	/**
+	 * The `fetch` every request to the server goes through, such as Electron's `net.fetch`, so requests honour the
+	 * computer's proxy settings and certificates.
+	 *
+	 * @defaultValue The global `fetch`
+	 */
+	fetch?: Fetch;
 	/**
 	 * The field that carries `maxOutputTokens`: `max_tokens` by default, which Ollama reads, or
 	 * `max_completion_tokens`, which OpenAI's reasoning models require. The latter is refused with `ollama`, which
@@ -394,10 +401,12 @@ export class OpenAiCompatibleProvider implements LlmProvider {
 	readonly url: string;
 	readonly sendsReasoning: boolean;
 	readonly #options: OpenAiCompatibleOptions;
+	readonly #fetch: Fetch;
 
 	/**
 	 * @param options - The server's base URL, its key, and how to call it.
-	 * @throws `InsecureTransportError`, a `TypeError`, when `apiKey` is set for plain HTTP to a non-loopback host
+	 * @throws `UnsupportedSchemeError`, a `TypeError`, when the base URL is not `http:` or `https:`.
+	 * `InsecureTransportError`, a `TypeError`, when `apiKey` is set for plain HTTP to a non-loopback host
 	 * without `allowInsecureHttp`. `TypeError` when the base URL is missing or invalid, `outputLimitField` is not a
 	 * known field or is `max_completion_tokens` with `ollama`, or `requestTimeoutMs` is not a usable timeout.
 	 */
@@ -406,7 +415,8 @@ export class OpenAiCompatibleProvider implements LlmProvider {
 			throw new TypeError('The provider needs a base URL');
 		}
 		const url = new URL(options.baseUrl);
-		// Ollama's native endpoints share this origin, so the check covers them too.
+		// Ollama's native endpoints share this origin, so the checks cover them too.
+		assertHttpScheme(url);
 		assertCredentialTransport(url, {
 			hasCredential: Boolean(options.apiKey),
 			allowInsecureHttp: options.allowInsecureHttp,
@@ -428,6 +438,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
 			assertTimeout('requestTimeoutMs', options.requestTimeoutMs);
 		}
 		this.#options = options;
+		this.#fetch = options.fetch ?? ((input, init) => fetch(input, init));
 		this.url = options.baseUrl.replace(/\/+$/, '');
 		this.sendsReasoning = options.sendReasoning === true;
 	}
@@ -529,7 +540,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
 			const endpoint = `${this.url}/chat/completions`;
 			let response: Response;
 			try {
-				response = await fetch(endpoint, {
+				response = await this.#fetch(endpoint, {
 					method: 'POST',
 					headers,
 					body: requestBody,
@@ -652,7 +663,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
 	/** Reads one of Ollama's native endpoints, at the root the `/v1` base URL sits under. */
 	async #native(path: '/api/ps' | '/api/tags', signal: AbortSignal): Promise<unknown> {
 		const root = this.url.replace(/\/v1$/, '');
-		const response = await fetch(`${root}${path}`, {
+		const response = await this.#fetch(`${root}${path}`, {
 			headers: await this.#headers(signal),
 			redirect: 'manual',
 			signal,

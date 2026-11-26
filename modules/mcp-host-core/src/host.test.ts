@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, mock, suite, test } from 'node:test';
 
-import { InsecureTransportError, McpClient } from '@overture-stack/mcp-client';
+import { type Fetch, InsecureTransportError, McpClient, UnsupportedSchemeError } from '@overture-stack/mcp-client';
 
 import { createHarness, name, outputs, withHost, withServer } from '#testing/harness.js';
 import { chunk, events, startModelServer, usageChunk, writeStream } from '#testing/modelServer.js';
@@ -10,12 +10,16 @@ import { LONG_TOOL_NAME, startTestServer, type TestServer } from '#testing/serve
 
 import { McpHost, RunActiveError } from './host.js';
 import { userMessage } from './messages.js';
+import { type ServerConfig } from './options.js';
 import { OpenAiCompatibleProvider } from './providers/openAiCompatible.js';
 import { instructionsHeading, reduceToolName } from './registry.js';
 import { carriedLabel } from './run.js';
 import { TOOL_MESSAGES } from './toolMessages.js';
 
-import { InsecureTransportError as ExportedInsecureTransportError } from './index.js';
+import {
+	InsecureTransportError as ExportedInsecureTransportError,
+	UnsupportedSchemeError as ExportedUnsupportedSchemeError,
+} from './index.js';
 
 suite('McpHost', () => {
 	let server: TestServer;
@@ -339,6 +343,62 @@ suite('McpHost', () => {
 			} finally {
 				connects.mock.restore();
 			}
+		});
+
+		test('refuses a server address with a scheme other than http or https, before connecting any server', async () => {
+			const connects = mock.method(McpClient, 'connect');
+			try {
+				const harness = createHarness(server, [], {
+					servers: [
+						{ key: 'test', containsOnlyOpenData: true, connection: { url: server.url } },
+						{ key: 'local', containsOnlyOpenData: true, connection: { url: 'file:///tmp/mcp' } },
+					],
+				});
+				await assert.rejects(McpHost.create(harness.options), UnsupportedSchemeError);
+				assert.equal(
+					UnsupportedSchemeError,
+					ExportedUnsupportedSchemeError,
+					'the index re-exports the same class',
+				);
+				assert.equal(connects.mock.callCount(), 0);
+			} finally {
+				connects.mock.restore();
+			}
+		});
+
+		test("sends every server's requests through the host's fetch", async () => {
+			const other = await startTestServer();
+			try {
+				const addresses: string[] = [];
+				const fetch: Fetch = async (input, init) => {
+					addresses.push(input);
+					return globalThis.fetch(input, init);
+				};
+				const harness = createHarness(server, [], {
+					fetch,
+					servers: [
+						{ key: 'test', containsOnlyOpenData: true, connection: { url: server.url } },
+						{ key: 'other', containsOnlyOpenData: true, connection: { url: other.url } },
+					],
+				});
+
+				await withHost(harness, async () => {
+					assert.ok(addresses.includes(server.url));
+					assert.ok(addresses.includes(other.url));
+				});
+			} finally {
+				await other.close();
+			}
+		});
+
+		test("keeps fetch out of a single server's configuration", () => {
+			const config: ServerConfig = {
+				key: 'test',
+				// @ts-expect-error `fetch` is the host's, for every server, never one server's.
+				connection: { url: server.url, fetch: globalThis.fetch },
+			};
+
+			assert.equal(config.key, 'test');
 		});
 
 		test('fails, closing what it opened, when a server cannot be reached', async () => {

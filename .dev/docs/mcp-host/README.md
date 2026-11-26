@@ -8,6 +8,7 @@ Design documents for the MCP host: the stack that connects to MCP servers, runs 
 - **[`model-provider-analysis.md`](model-provider-analysis.md):** why host-core has its own Chat Completions client rather than a library, and when to add the Responses API.
 - **[`data-crossing-options.md`](data-crossing-options.md):** the options weighed for plan question 4, keeping each server's data out of other servers' requests unless the person flags it as open-access only, and the team's remaining choice.
 - **[`connections.md`](connections.md):** each connection's authentication, from the host's side.
+- **[`fetch-option.md`](fetch-option.md):** how the desktop app's main process makes its network requests, so they honour the computer's proxy settings and certificates: the options weighed, the experiments in Electron, the decision, and when to revisit it.
 - **[End-to-End Check](#end-to-end-check):** a chat through `mcp-client` and `mcp-host-core` against a running Arranger, with the scenarios that show the built phases working together.
 
 The client's own internals are documented beside its code, in [`modules/mcp-client/docs/architecture.md`](../../../modules/mcp-client/docs/architecture.md).

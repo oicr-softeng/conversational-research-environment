@@ -1,0 +1,19 @@
+{
+	"extends": "../../../../../node_modules/@tsconfig/node24/tsconfig.json",
+	"compilerOptions": {
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"strict": true,
+		"noEmit": true,
+		"types": ["node"],
+		"typeRoots": ["../../../../../node_modules/@types"],
+		"baseUrl": ".",
+		"paths": {
+			"electron": ["../../../../../node_modules/electron/electron.d.ts"],
+			"@modelcontextprotocol/client": [
+				"../../../../../node_modules/@modelcontextprotocol/client/dist/index.d.mts"
+			]
+		}
+	},
+	"files": ["6-types.ts"]
+}

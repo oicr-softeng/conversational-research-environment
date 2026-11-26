@@ -2,7 +2,17 @@ import assert from 'node:assert/strict';
 import { after, before, suite, test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import {
+	auth,
+	type AuthProvider,
+	Client,
+	ClientCredentialsProvider,
+	extractWWWAuthenticateParams,
+	type OAuthClientInformationMixed,
+	type OAuthClientProvider,
+	StreamableHTTPClientTransport,
+	UnauthorizedError,
+} from '@modelcontextprotocol/client';
 
 import { startTestServer, type TestServer, type TestServerOptions } from '#testing/server.js';
 
@@ -16,7 +26,8 @@ import {
 	type SurfaceChange,
 	type SurfaceRecord,
 } from './client.js';
-import { type InputQuestion, type InputResolver, type RoundInfo } from './types.js';
+import { UnsupportedSchemeError } from './fetch.js';
+import { type Fetch, type InputQuestion, type InputResolver, type RoundInfo } from './types.js';
 
 const accept: InputResolver = async () => ({ action: 'accept', content: { confirm: true } });
 
@@ -567,5 +578,215 @@ suite('connecting', () => {
 			} finally {
 				await client.close();
 			}
+		}));
+});
+
+/** An authorization server that exists only inside a test's `fetch`, which answers for it. Never contacted. */
+const AUTH_ORIGIN = 'http://127.0.0.1:9';
+
+const json = (body: unknown, status = 200) =>
+	new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+/**
+ * A `Fetch` that records every address it is given, answers OAuth discovery, registration and token requests for
+ * {@link AUTH_ORIGIN} and the server's protected-resource metadata, and sends everything else to the server.
+ */
+const signInFetch = (server: TestServer) => {
+	const addresses: string[] = [];
+	const fetch: Fetch = async (input, init) => {
+		addresses.push(input);
+		const { origin, pathname } = new URL(input);
+		if (origin === AUTH_ORIGIN) {
+			switch (pathname) {
+				case '/.well-known/oauth-authorization-server':
+					return json({
+						issuer: AUTH_ORIGIN,
+						authorization_endpoint: `${AUTH_ORIGIN}/authorize`,
+						token_endpoint: `${AUTH_ORIGIN}/token`,
+						registration_endpoint: `${AUTH_ORIGIN}/register`,
+						response_types_supported: ['code'],
+						grant_types_supported: ['authorization_code', 'client_credentials'],
+						token_endpoint_auth_methods_supported: ['client_secret_basic', 'none'],
+						code_challenge_methods_supported: ['S256'],
+					});
+				case '/token':
+					return json({ access_token: 'fresh', token_type: 'Bearer', expires_in: 3600 });
+				case '/register':
+					return json({ client_id: 'registered', redirect_uris: ['http://127.0.0.1/callback'] }, 201);
+				default:
+					return json({ error: 'not_found' }, 404);
+			}
+		}
+		if (pathname.startsWith('/.well-known/oauth-protected-resource')) {
+			return json({ resource: server.url, authorization_servers: [AUTH_ORIGIN] });
+		}
+		return globalThis.fetch(input, init);
+	};
+	return { addresses, fetch };
+};
+
+/** An `AuthProvider` that signs in through `oauth` on a 401, as the SDK's own adapter for an OAuth provider does. */
+const signingIn = (oauth: OAuthClientProvider, token: () => Promise<string | undefined>): AuthProvider => ({
+	token,
+	onUnauthorized: async ({ response, serverUrl, fetchFn }) => {
+		const { resourceMetadataUrl } = extractWWWAuthenticateParams(response);
+		if ((await auth(oauth, { serverUrl, resourceMetadataUrl, fetchFn })) !== 'AUTHORIZED') {
+			throw new UnauthorizedError();
+		}
+	},
+});
+
+suite('a given fetch', () => {
+	test('serves every request to the server, including the change-notification stream, with string addresses only', () =>
+		withServer({}, async (server) => {
+			const inputs: unknown[] = [];
+			const fetch: Fetch = async (input, init) => {
+				inputs.push(input);
+				return globalThis.fetch(input, init);
+			};
+			const client = await connect(server, { fetch, changeNotifications: { onChange: () => undefined } });
+			try {
+				await until(() => server.requests.some(({ method }) => method === 'subscriptions/listen'));
+				const outcome = await client.callTool('call-30', 'error_without_output');
+
+				assert.equal(outcome.outcome, 'result');
+				assert.ok(server.requests.some(({ method }) => method === 'tools/list'));
+				assert.ok(server.requests.some(({ method }) => method === 'tools/call'));
+				assert.equal(inputs.length, server.requests.length);
+				assert.ok(inputs.every((input) => typeof input === 'string'));
+			} finally {
+				await client.close();
+			}
+		}));
+
+	test('refuses a server address with a scheme other than http or https, before calling fetch', async () => {
+		let calls = 0;
+		const fetch: Fetch = async () => {
+			calls += 1;
+			return new Response(null, { status: 500 });
+		};
+
+		for (const url of ['file:///tmp/mcp', 'app://renderer/mcp']) {
+			await assert.rejects(
+				McpClient.connect({ url, clientInfo: { name: 'mcp-client-test', version: '0.0.0' }, fetch }),
+				(error: unknown) => error instanceof UnsupportedSchemeError,
+				url,
+			);
+		}
+		assert.equal(calls, 0);
+	});
+
+	test('serves sign-in discovery and token requests', () =>
+		withServer({ requireToken: 'fresh' }, async (server) => {
+			const { addresses, fetch } = signInFetch(server);
+			const oauth = new ClientCredentialsProvider({ clientId: 'cre', clientSecret: 'not-a-secret' });
+			const client = await connect(server, {
+				fetch,
+				auth: { provider: signingIn(oauth, async () => (await oauth.tokens())?.access_token) },
+			});
+			const outcome = await client.callTool('call-31', 'error_without_output');
+			await client.close();
+
+			assert.equal(outcome.outcome, 'result');
+			assert.ok(addresses.some((address) => address.includes('/.well-known/oauth-protected-resource')));
+			assert.ok(addresses.includes(`${AUTH_ORIGIN}/.well-known/oauth-authorization-server`));
+			assert.ok(addresses.includes(`${AUTH_ORIGIN}/token`));
+		}));
+
+	test('serves sign-in registration requests', () =>
+		withServer({ requireToken: 'fresh' }, async (server) => {
+			const { addresses, fetch } = signInFetch(server);
+			let registered: OAuthClientInformationMixed | undefined;
+			const oauth: OAuthClientProvider = {
+				redirectUrl: 'http://127.0.0.1/callback',
+				clientMetadata: {
+					client_name: 'mcp-client-test',
+					redirect_uris: ['http://127.0.0.1/callback'],
+					grant_types: ['authorization_code'],
+					token_endpoint_auth_method: 'none',
+				},
+				clientInformation: () => registered,
+				saveClientInformation: (information) => {
+					registered = information;
+				},
+				tokens: () => undefined,
+				saveTokens: () => undefined,
+				redirectToAuthorization: () => undefined,
+				saveCodeVerifier: () => undefined,
+				codeVerifier: () => 'verifier',
+			};
+
+			await assert.rejects(
+				connect(server, { fetch, auth: { provider: signingIn(oauth, async () => undefined) } }),
+			);
+
+			assert.ok(addresses.includes(`${AUTH_ORIGIN}/register`));
+			assert.equal(registered?.client_id, 'registered');
+		}));
+
+	test('refuses an address from the server with another scheme, and reports the call as a network failure', () =>
+		withServer(
+			{ requireToken: 'good', wwwAuthenticate: 'Bearer resource_metadata="file:///etc/hosts"' },
+			async (server) => {
+				const { addresses, fetch } = signInFetch(server);
+				let token = 'good';
+				const oauth = new ClientCredentialsProvider({ clientId: 'cre', clientSecret: 'not-a-secret' });
+				const client = await connect(server, {
+					fetch,
+					auth: { provider: signingIn(oauth, async () => token) },
+				});
+				token = 'expired';
+
+				const outcome = await client.callTool('call-32', 'error_without_output');
+				await client.close();
+
+				assert.equal(outcome.outcome, 'transport_error');
+				assert.equal(outcome.kind, 'network');
+				assert.match(outcome.message, /file:/);
+				assert.ok(!addresses.some((address) => address.startsWith('file:')));
+			},
+		));
+
+	test('reports a TypeError during sign-in discovery as a network failure, rather than asking the server instead', () =>
+		withServer({ requireToken: 'good' }, async (server) => {
+			const signIn = signInFetch(server);
+			const fetch: Fetch = async (input, init) => {
+				if (new URL(input).pathname.startsWith('/.well-known/oauth-protected-resource')) {
+					signIn.addresses.push(input);
+					throw new TypeError('fetch failed');
+				}
+				return signIn.fetch(input, init);
+			};
+			let token = 'good';
+			const oauth = new ClientCredentialsProvider({ clientId: 'cre', clientSecret: 'not-a-secret' });
+			const client = await connect(server, { fetch, auth: { provider: signingIn(oauth, async () => token) } });
+			token = 'expired';
+
+			const outcome = await client.callTool('call-33', 'error_without_output');
+			await client.close();
+
+			assert.equal(outcome.outcome, 'transport_error');
+			assert.equal(outcome.kind, 'network');
+			assert.ok(!signIn.addresses.some((address) => address.includes('/.well-known/oauth-authorization-server')));
+		}));
+
+	test('reports a rejection of another type as itself, unconverted', () =>
+		withServer({}, async (server) => {
+			let failing = false;
+			const fetch: Fetch = async (input, init) => {
+				if (failing) {
+					throw new RangeError('a bug in the given fetch');
+				}
+				return globalThis.fetch(input, init);
+			};
+			const client = await connect(server, { fetch });
+			failing = true;
+
+			const outcome = await client.callTool('call-34', 'error_without_output');
+			await client.close();
+
+			assert.equal(outcome.outcome, 'transport_error');
+			assert.equal(outcome.kind, 'unknown');
+			assert.equal(outcome.message, 'a bug in the given fetch');
 		}));
 });

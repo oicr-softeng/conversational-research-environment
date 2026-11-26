@@ -54,6 +54,8 @@ export type TestServerOptions = {
 	listTtlMs?: number;
 	/** Answers 401 to any request without `Authorization: Bearer <requireToken>`. */
 	requireToken?: string;
+	/** Sent as `WWW-Authenticate` with each 401 that `requireToken` causes. */
+	wwwAuthenticate?: string;
 	/** Answers 500 to every request for this method, by its `Mcp-Method` header. */
 	failMethod?: string;
 	/** Open change-notification streams allowed; 0 refuses every one. */
@@ -257,7 +259,10 @@ export const startTestServer = async (options: TestServerOptions = {}) => {
 			),
 		});
 		if (options.requireToken !== undefined && req.headers.authorization !== `Bearer ${options.requireToken}`) {
-			res.writeHead(401).end();
+			res.writeHead(
+				401,
+				options.wwwAuthenticate === undefined ? {} : { 'www-authenticate': options.wwwAuthenticate },
+			).end();
 			return;
 		}
 		if (options.failMethod !== undefined && method === options.failMethod) {

@@ -14,6 +14,7 @@ flowchart LR
 
     subgraph module["@overture-stack/mcp-client"]
         client["McpClient<br/>client.ts"]
+        wrap["toSdkFetch<br/>fetch.ts"]
         loop["runConfirmationLoop<br/>confirmationLoop.ts"]
         classify["classifyError<br/>outcomes.ts"]
         validate["compileOutputValidators<br/>checkToolOutput<br/>outputValidation.ts"]
@@ -37,17 +38,20 @@ flowchart LR
     client -->|"each snapshot,<br/>each result"| validate
     validate --> ajv
     sdkClient --> transport
-    transport -->|"Streamable HTTP,<br/>revision 2026-07-28"| server
+    client -->|"wraps the host's fetch"| wrap
+    transport -->|"every request"| wrap
+    wrap -->|"Streamable HTTP,<br/>revision 2026-07-28,<br/>http and https only"| server
 ```
 
 | File                  | Owns                                                                                                                                  |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `client.ts`           | `McpClient`: SDK client options, the credential check, reading the surface, and the four request methods.                             |
+| `client.ts`           | `McpClient`: SDK client options, the scheme and credential checks, reading the surface, and the four request methods.                 |
 | `confirmationLoop.ts` | `runConfirmationLoop`: sending each leg, `input_required` rounds, questions to the resolver, timing. Knows nothing of the SDK client. |
+| `fetch.ts`            | `toSdkFetch`, which hands the host's `Fetch` to the SDK as a string-only call after `assertHttpScheme` refuses any other scheme.      |
 | `outcomes.ts`         | The `CallOutcome` types, and `classifyError`, which maps whatever a leg threw to one outcome.                                         |
 | `outputValidation.ts` | Compiling each snapshot's `outputSchema`s on a fresh Ajv instance, and checking a tool's final result against them.                   |
 | `surface.ts`          | Building the snapshot from named fields, canonical JSON, and the SHA-256 hash.                                                        |
-| `types.ts`            | `InputResolver`, `InputQuestion`, `RoundInfo`, `CallOptions`, and the SDK types re-exported for hosts.                                |
+| `types.ts`            | `InputResolver`, `InputQuestion`, `RoundInfo`, `CallOptions`, `Fetch`, and the SDK types re-exported for hosts.                       |
 
 **Not in this module:** models, tool-name namespacing, approvals, event formatting, retries, the timer on waiting for a person, and anything specific to Arranger. Those belong to the host.
 
@@ -66,8 +70,8 @@ sequenceDiagram
     participant M as MCP server
 
     H->>C: connect(options, signal)
-    C->>C: assertCredentialTransport(url)
-    Note over C: Throws InsecureTransportError if auth would go<br/>over plain HTTP to a non-loopback host<br/>without allowInsecureHttp
+    C->>C: assertHttpScheme(url), assertCredentialTransport(url)
+    Note over C: Throws UnsupportedSchemeError unless url is http or https,<br/>since the SDK would wrap a refusal from the fetch in an SdkError.<br/>Throws InsecureTransportError if auth would go<br/>over plain HTTP to a non-loopback host<br/>without allowInsecureHttp
     C->>S: new Client(clientInfo, options)
     Note over C,S: versionNegotiation pins 2026-07-28<br/>inputRequired.autoFulfill is false<br/>elicitation form is declared only with a resolver<br/>listChanged handlers only on opt-in
     C->>S: connect(StreamableHTTPClientTransport)
@@ -115,7 +119,7 @@ sequenceDiagram
 
 Errors the SDK raises outside any call, such as a listen stream that failed to open, go to `onError`. Anything `onError` throws is swallowed, since the SDK calls it from inside its own promise handlers.
 
-**Tested in** `client.test.ts` (credential transport, surface reads, change notifications, `onError`).
+**Tested in** `client.test.ts` (credential transport, surface reads, change notifications, `onError`, and `a given fetch` for the scheme check at connect) and `fetch.test.ts`.
 
 ## Calling a tool
 
@@ -279,9 +283,9 @@ flowchart TD
 - **Abort is checked first** because the SDK reports a caller's abort the same way as a timeout. Only the caller's own signal tells the two apart.
 - **A refused state counts only on a leg that echoed one.** On the first leg, `-32602` is an ordinary `rejected`.
 - **An undecodable reply is a `transport_error`**, not `rejected`, because whether the tool ran is unknown.
-- **A `TypeError` is a failed `fetch`**, which the SDK passes through unwrapped.
+- **A `TypeError` is a failed `fetch`**, which the SDK passes through unwrapped. That includes `UnsupportedSchemeError`, so an address refused for its scheme is a `network` failure. A host's `fetch` must reject a network failure with a `TypeError` for it to count. Nothing converts other errors, so a bug in a host's `fetch` reports as `unknown`.
 
-**Tested in** `outcomes.test.ts` and `client.test.ts` (timeouts, aborts, lost connections, 401 retries).
+**Tested in** `outcomes.test.ts`, `client.test.ts` (timeouts, aborts, lost connections, 401 retries, and `a given fetch` for refused schemes and rejections that aren't a `TypeError`) and `fetch.test.ts`.
 
 ## What the surface hash covers
 

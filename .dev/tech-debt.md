@@ -13,11 +13,11 @@
 
 ### Responses from a server must have a size limit
 
-**File:** `modules/mcp-client/src/client.ts` (the transport)
+**File:** `modules/mcp-client/src/fetch.ts` (`toSdkFetch`)
 **Severity:** blocks publishing `mcp-client` (MCP host plan §4.1), and must be fixed before the CRE desktop app ships, since users can add their own servers (plan §2.4)
 **Kind:** hardening
-**Issue:** A response body must be bounded before the SDK parses it, for list results and call results alike.
-**Fix:** Give the transport a `fetch` (its `fetch` option) that stops reading past a configured byte limit, and report that as `transport_error`. Test with an oversized `tools/list` and an oversized tool result.
+**Issue:** A response body must be bounded before the SDK parses it, for list results, call results and OAuth responses alike.
+**Fix:** In `toSdkFetch`, which every request goes through, stop reading past a configured byte limit and report that as `transport_error`. Past the limit, abort the request through an `AbortController` joined to the caller's signal, not only cancel the body: under Electron's `net.fetch`, a cancelled body leaves the connection open ([`fetch-option.md`](docs/mcp-host/fetch-option.md#8-fixes-needed-under-every-option) §8). Cap each event of an event stream, not the stream's total, since a change-notification stream stays open for the client's life. Set the limit to allow an Arranger tool result of about 15 MiB. Test with an oversized `tools/list` and an oversized tool result, and that each ends the connection.
 **Standalone:** yes
 
 ### An elicitation's `requestedSchema` must have a depth and size limit
@@ -28,6 +28,15 @@
 **Issue:** A form-mode elicitation's `requestedSchema` comes from the server, and `isFormQuestion` checks only that it is an object. Host-core passes it unchanged to the input resolver and in the `INPUT_REQUIRED` event. A deeply nested schema from a buggy or hostile server could exhaust a form renderer that recurses over it. A tool's `outputSchema`, the same kind of untrusted schema, is already refused past `MAX_OUTPUT_SCHEMA_DEPTH` and `MAX_OUTPUT_SCHEMA_BYTES` in `outputValidation.ts`.
 **Fix:** Apply the same two limits to `requestedSchema` before the person is asked anything, and end the call as `input_failed` past either, as `formQuestions` does for a malformed request. Test with a schema past each limit.
 **Standalone:** yes
+
+### Export the `fetch` wrapper once the app calls the SDK's sign-in code itself
+
+**File:** `modules/mcp-client/src/fetch.ts` (`toSdkFetch`)
+**Severity:** low until the app calls the SDK's sign-in code outside a server connection
+**Kind:** API surface
+**Issue:** A connection sends every request through `toSdkFetch`, sign-in included, so each gets the scheme check and, once built, the size limit. SDK sign-in code called outside a connection, such as `auth()` from a sign-in button, `CrossAppAccessProvider` or the grant helpers, takes its own `fetch`, defaulting to the global one, so its requests get neither.
+**Fix:** When the app first calls such code, export `toSdkFetch` from the index, and pass that code the app's network function wrapped by it.
+**Standalone:** no; no current design calls such code
 
 ### `wireMs` overstates server time, which the evaluation harness would read it as
 
@@ -42,15 +51,6 @@
 
 ## modules/mcp-host-core
 
-### Both modules must accept a `fetch`, so the CRE can pass Electron's `net.fetch`
-
-**File:** `modules/mcp-host-core/src/providers/openAiCompatible.ts` (both `fetch` calls), `modules/mcp-client/src/client.ts` (`transportOptions`)
-**Severity:** must be fixed before the CRE desktop app ships, since institutional networks commonly need a proxy or trust their own certificate authority
-**Kind:** configuration
-**Issue:** The provider calls the global `fetch`, and `mcp-client` builds its transport with only its auth options, so neither takes a `fetch` from its caller. The CRE's main process needs to pass Electron's `net.fetch`, which uses the operating system's proxy settings and certificate store. Node's own `fetch` uses neither, so on such a network, requests to the model and to MCP servers can fail where the person's browser succeeds.
-**Fix:** Add a `fetch` option to host-core, passed through to the provider and to the transport's own `fetch` option in `mcp-client`, with the global `fetch` as the default. Before relying on `net.fetch`, check that it honours `redirect: 'manual'`, which the provider sets so that a redirect is never followed with the conversation, and that it streams response bodies the way the provider reads them. The fix for "Responses from a server must have a size limit" is a `fetch` wrapper too, so the two compose.
-**Standalone:** yes
-
 ### Trim the exported surface before `mcp-host-core` is published
 
 **File:** `modules/mcp-host-core/src/index.ts`
@@ -59,6 +59,15 @@
 **Issue:** The index exports helpers a consumer rarely needs, such as `TOOL_MESSAGES`, `reduceToolName`, `carriedLabel` and `MAX_ERROR_BODY_CHARS`, and every public vocabulary in `constants.ts`, from `EVENT_TYPES` to `LEFT_OUT_REASONS`. If the MCP host plan's question 3 settles on `apps/mcp-eval` with a published, pinned host-core, every export becomes API whose change needs a new major version.
 **Fix:** Before the first publish, keep what `chat`, `eval` and the CRE main process actually import, and move the rest out of the index.
 **Standalone:** no; decide with the plan's question 3, before host-core is first published
+
+### Responses from the model endpoint must have a size limit
+
+**File:** `modules/mcp-host-core/src/providers/openAiCompatible.ts` (`generate`, `#native`)
+**Severity:** must be fixed before the CRE desktop app ships, since the person configures the model endpoint as they do a server (MCP host plan §2.4)
+**Kind:** hardening
+**Issue:** Each event of a streamed reply is bounded by `MAX_EVENT_BYTES`, but nothing bounds the rest of what the provider reads: a streamed reply as a whole, since `max_tokens` is a request an endpoint can ignore; a reply that isn't streamed, read with `response.json()`; an error body, read whole with `response.text()` before being cut to `MAX_ERROR_BODY_CHARS`; and Ollama's `/api/ps` and `/api/tags`, read with `response.json()`. `mcp-client`'s size limit covers only MCP servers.
+**Fix:** Bound each read by bytes, and report a reply past the limit as a model error. Read at most `MAX_ERROR_BODY_CHARS` worth of an error body. Past any limit, abort the request through the provider's own `AbortController`, joined to the caller's signal: under Electron's `net.fetch`, only cancelling the body leaves the connection open ([`fetch-option.md`](docs/mcp-host/fetch-option.md#8-fixes-needed-under-every-option) §8). Apply the limit inside the provider, so it holds whatever `fetch` the app passes in. Test with an oversized streamed reply, an oversized whole reply and an oversized error body, and that each ends the connection.
+**Standalone:** yes
 
 ### Servers are ordered by when they connected, not by their configuration
 
@@ -86,6 +95,17 @@
 **Issue:** Every `denied` outcome gets "The user declined the call", whether `by` is `person`, `timeout`, `policy` or `policy_error`, so a call the policy denied without asking anyone tells the model a person refused it.
 **Fix:** Give `denied` a fixed wording for each `by`, such as "The call was not permitted" for a policy, so the model is told what happened and transcripts still compare.
 **Standalone:** yes
+
+## apps/desktop
+
+### Move the app's network function to option C when a trigger fires
+
+**File:** `apps/desktop/src/main/`, the function that hands both modules Electron's `net.fetch`
+**Severity:** low until a trigger fires
+**Kind:** networking
+**Issue:** Under option B, `net.fetch` on an in-memory session, a request fails on any redirect, same-origin ones included, and can't answer a proxy that asks for a username and password ([`fetch-option.md`](docs/mcp-host/fetch-option.md#3-what-electrons-network-stack-does) §3, findings 1 and 5).
+**Fix:** Replace the function with option C, the app's own `fetch` on `net.request`, once one of [`fetch-option.md`](docs/mcp-host/fetch-option.md#10-decision) §10's triggers fires: a server redirects in a way the person can't avoid by typing a different address, the deployment's Keycloak redirects an address the SDK calls, or a target network's proxy asks for a username and password. Check the deployment's Keycloak before authenticated Arranger ships. The modules need no change.
+**Standalone:** no; the function comes with connecting host-core to the app's main process (roadmap, "MCP host modules and desktop app")
 
 ## Dependencies
 

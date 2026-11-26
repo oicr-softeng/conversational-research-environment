@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, suite, test } from 'node:test';
 
-import { InsecureTransportError } from '@overture-stack/mcp-client';
+import { type Fetch, InsecureTransportError, UnsupportedSchemeError } from '@overture-stack/mcp-client';
 
 import { chunk, events, type ModelServer, startModelServer, usageChunk, writeStream } from '#testing/modelServer.js';
 
@@ -281,6 +281,12 @@ suite('OpenAiCompatibleProvider', () => {
 		test('needs a base URL', () => {
 			assert.throws(() => new OpenAiCompatibleProvider({ baseUrl: '' }), TypeError);
 			assert.throws(() => new OpenAiCompatibleProvider({ baseUrl: 'not a url' }), TypeError);
+		});
+
+		test('refuses a base URL with a scheme other than http or https', () => {
+			for (const baseUrl of ['file:///tmp/v1', 'app://renderer/v1']) {
+				assert.throws(() => new OpenAiCompatibleProvider({ baseUrl }), UnsupportedSchemeError, baseUrl);
+			}
 		});
 
 		test('refuses an API key over plain HTTP to a host other than this machine', () => {
@@ -688,6 +694,49 @@ suite('OpenAiCompatibleProvider', () => {
 					},
 				},
 			]);
+		});
+	});
+
+	suite('a given fetch', () => {
+		test('sends every request through it, streamed, whole and native, with string addresses', async () => {
+			model.answer((request, response) => {
+				if (request.path === '/api/ps' || request.path === '/api/tags') {
+					response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ models: [] }));
+					return;
+				}
+				if ((request.body as { stream?: boolean }).stream === true) {
+					writeStream(response, events(chunk({ content: 'ok' }, 'stop')));
+					return;
+				}
+				response.writeHead(200, { 'content-type': 'application/json' }).end(
+					JSON.stringify({
+						model: 'test-model',
+						choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: 'ok' } }],
+					}),
+				);
+			});
+			const inputs: unknown[] = [];
+			const fetch: Fetch = async (input, init) => {
+				inputs.push(input);
+				return globalThis.fetch(input, init);
+			};
+			const streamed = new OpenAiCompatibleProvider({ baseUrl: model.url, ollama: true, fetch });
+			const whole = new OpenAiCompatibleProvider({ baseUrl: model.url, stream: false, fetch });
+			const signal = new AbortController().signal;
+			const before = model.requests.length;
+
+			assert.equal(last(await collect(streamed))?.type, 'response');
+			assert.equal(last(await collect(whole))?.type, 'response');
+			await streamed.contextWindow('qwen3:14b', signal);
+			await streamed.modelDigest('qwen3:14b', signal);
+
+			assert.deepEqual(inputs, [
+				`${model.url}/chat/completions`,
+				`${model.url}/chat/completions`,
+				`${model.url.replace(/\/v1$/, '')}/api/ps`,
+				`${model.url.replace(/\/v1$/, '')}/api/tags`,
+			]);
+			assert.equal(model.requests.length - before, inputs.length);
 		});
 	});
 

@@ -104,7 +104,7 @@ sequenceDiagram
     H->>X: assertServersApart(servers, state.servers)
     Note over X: A restricted server beside any other,<br/>or any server beside restricted data<br/>from another, throws ServerSetError<br/>and nothing connects
     par each server
-        H->>M: McpClient.connect, with host-core's resolver,<br/>change callback and onError
+        H->>M: McpClient.connect, with host-core's resolver,<br/>change callback, onError and the host's fetch
     end
     alt every server connected
         H-->>C: McpHost
@@ -114,7 +114,7 @@ sequenceDiagram
     end
 ```
 
-The resolver and the change callback are host-core's own, which is why host-core connects the clients rather than taking connected ones: `McpClient.connect` fixes both at connect.
+The resolver and the change callback are host-core's own, which is why host-core connects the clients rather than taking connected ones: `McpClient.connect` fixes both at connect. The `fetch` is the host's too, and `ServerConfig.connection` leaves it out, so no server's requests can miss it.
 
 **Tested in** `host.test.ts` (`create`), `crossing.test.ts` (`assertServersApart`, `data crossing`) and `state.test.ts` (`restoreState`).
 
@@ -290,7 +290,8 @@ stateDiagram-v2
 `OpenAiCompatibleProvider.generate` sends one request and yields deltas, then exactly one `response` or `error`. It never throws, never retries and reads no environment variables.
 
 - **The request:** `toWireMessages` groups a turn's calls on one assistant message and keys each tool result by the model's own call id. A malformed call's text is sent back wrapped as `{"unparsed": ...}`, since a server may refuse arguments that are not an object. The reply cap goes in `outputLimitField`, `max_tokens` by default, and `max_completion_tokens` is refused with `ollama`, which ignores it. `extra` goes last and can override `temperature`, `top_p` and `response_format`. `assertSettings` refuses an `extra` that sets `model`, `messages`, `tools`, `stream`, `stream_options`, `n`, `seed` or either cap field, naming what to use instead, so `create` throws before connecting. For a caller without a host, `generate` refuses it too, as an `unknown` error, as it does a request that cannot be serialized, and sends nothing.
-- **The key:** a string, or a function called before every request. A 401 is a `model_error` with its status. Unless `allowInsecureHttp` is set, the constructor refuses a key over plain HTTP to a non-loopback host, using `mcp-client`'s `assertCredentialTransport`, so both packages throw the same `InsecureTransportError`. Ollama's native endpoints share the origin, so the check covers them.
+- **The key:** a string, or a function called before every request. A 401 is a `model_error` with its status. Unless `allowInsecureHttp` is set, the constructor refuses a key over plain HTTP to a non-loopback host, using `mcp-client`'s `assertCredentialTransport`, so both packages throw the same `InsecureTransportError`. It refuses a base URL that is not `http:` or `https:` with `mcp-client`'s `assertHttpScheme` too. Ollama's native endpoints share the origin, so the checks cover them.
+- **The `fetch`:** every request, Ollama's native reads included, goes through the `fetch` given to the constructor, or the global one.
 - **The stream:** `eventsource-parser` frames events, with an 8 MiB cap on one event. `foldChunk` gathers text, reasoning and tool-call fragments by index, then sorts them, so indexes may start anywhere and arrive in any order. Only the first choice is read. A whole reply folds through the same function as one chunk.
 - **Errors:** an HTTP status with a bounded body, or for a redirect, its target, since a redirect is never followed so the conversation is not re-sent elsewhere; `aborted`, `timeout` and `network`, told apart by which signal ended the request; an error event or unreadable data in the stream; a refusal; and a stream with no `finish_reason`, which Ollama's `/v1` sends when it drops an error mid-stream.
 - **Ollama:** with `ollama`, `contextWindow()` reads `/api/ps` and `modelDigest()` reads `/api/tags`. Every model call still goes through `/v1`.

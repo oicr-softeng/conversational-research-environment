@@ -66,3 +66,13 @@ export type CallOptions = {
 	/** Observes each round. A throw ends the call as `input_failed`. */
 	onRound?: (round: RoundInfo) => void;
 };
+
+/**
+ * The `fetch` a client sends every request through, such as Node's own or Electron's `net.fetch`.
+ *
+ * @remarks
+ * Called only with a string address. A network failure must reject with a `TypeError`, as the platform's `fetch`
+ * does. Only a `TypeError` counts as a `network` failure, and during OAuth discovery the SDK reads any other failure
+ * as no metadata. An abort may reject with whatever the signal gives.
+ */
+export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;

@@ -24,7 +24,7 @@ export type RefreshError = { key: string; message: string };
 /** The connections of one conversation, by server key. */
 export class Connections {
 	readonly #servers = new Map<string, Connected>();
-	readonly #options: Pick<McpHostOptions, 'confirmations' | 'onServerError' | 'clientInfo'>;
+	readonly #options: Pick<McpHostOptions, 'confirmations' | 'onServerError' | 'clientInfo' | 'fetch'>;
 	readonly #resolve: QuestionResolver;
 
 	/**
@@ -64,11 +64,12 @@ export class Connections {
 	 */
 	async connect(config: ServerConfig, signal?: AbortSignal): Promise<void> {
 		const { key } = config;
-		const { confirmations, onServerError, clientInfo } = this.#options;
+		const { confirmations, onServerError, clientInfo, fetch } = this.#options;
 		const client = await McpClient.connect(
 			{
 				...config.connection,
 				clientInfo,
+				...(fetch && { fetch }),
 				...(confirmations !== false && {
 					inputResolver: (question: InputQuestion) => this.#resolve(key, question),
 				}),

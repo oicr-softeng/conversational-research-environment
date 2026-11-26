@@ -10,6 +10,7 @@ export {
 	type SurfaceRecord,
 } from './client.js';
 export { DEFAULT_MAX_ROUNDS, STATE_ONLY_ROUND_PAUSE_MS } from './confirmationLoop.js';
+export { assertHttpScheme, UnsupportedSchemeError } from './fetch.js';
 export type {
 	CallOutcome,
 	CallTiming,
