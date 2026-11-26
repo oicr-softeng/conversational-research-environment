@@ -13,10 +13,11 @@ import {
 } from '@modelcontextprotocol/client';
 
 import { DEFAULT_MAX_ROUNDS, runConfirmationLoop } from './confirmationLoop.js';
+import { assertHttpScheme, toSdkFetch } from './fetch.js';
 import { type CallOutcome } from './outcomes.js';
 import { checkToolOutput, compileOutputValidators, type OutputValidators } from './outputValidation.js';
 import { hashSurface, type SurfaceSnapshot, toSurfaceSnapshot } from './surface.js';
-import { type CallOptions, type InputResolver } from './types.js';
+import { type CallOptions, type Fetch, type InputResolver } from './types.js';
 
 /** The only protocol revision this client speaks. */
 export const PROTOCOL_REVISION = '2026-07-28';
@@ -46,6 +47,17 @@ export type McpClientOptions = {
 	auth?: { headers: Record<string, string> } | { provider: AuthProvider };
 	/** Allows `auth` over plain HTTP to a non-loopback address, which exposes the credential on the network. */
 	allowInsecureHttp?: boolean;
+	/**
+	 * The `fetch` every request goes through, OAuth discovery, registration and token requests for `auth` included.
+	 *
+	 * @remarks
+	 * An address that isn't `http:` or `https:` is refused with `UnsupportedSchemeError` before `fetch` is called. A
+	 * call ended by any `TypeError`, that refusal included, reports `kind: 'network'`. Through the SDK's `withOAuth`
+	 * middleware, which this client doesn't use, it would report `unauthorized`.
+	 *
+	 * @defaultValue The global `fetch`
+	 */
+	fetch?: Fetch;
 	/** Answers the server's questions. Without one, the client does not declare `elicitation`, so servers ask nothing. */
 	inputResolver?: InputResolver;
 	/**
@@ -168,12 +180,17 @@ export const assertCredentialTransport = (
 	}
 };
 
-const transportOptions = (auth: McpClientOptions['auth']): StreamableHTTPClientTransportOptions => {
+const authOptions = (auth: McpClientOptions['auth']): StreamableHTTPClientTransportOptions => {
 	if (!auth) {
 		return {};
 	}
 	return 'provider' in auth ? { authProvider: auth.provider } : { requestInit: { headers: auth.headers } };
 };
+
+const transportOptions = ({ auth, fetch }: McpClientOptions): StreamableHTTPClientTransportOptions => ({
+	...authOptions(auth),
+	fetch: toSdkFetch(fetch ?? globalThis.fetch),
+});
 
 const listChangedHandlers = (onChange: (change: SurfaceChange) => void): ListChangedHandlers => {
 	const handler = (kind: SurfaceChangeKind) => ({
@@ -209,11 +226,14 @@ export class McpClient {
 	 * @param options - The server, credentials and resolver.
 	 * @param signal - Aborts connecting.
 	 * @returns A connected client.
-	 * @throws {@link InsecureTransportError} when `auth` would be sent over plain HTTP (see
-	 * {@link McpClientOptions.auth}), and whatever the SDK throws when connecting or reading the surface fails.
+	 * @throws `UnsupportedSchemeError` when `url`'s scheme is not `http:` or `https:`, {@link InsecureTransportError}
+	 * when `auth` would be sent over plain HTTP (see {@link McpClientOptions.auth}), and whatever the SDK throws when
+	 * connecting or reading the surface fails.
 	 */
 	static async connect(options: McpClientOptions, signal?: AbortSignal): Promise<McpClient> {
 		const url = new URL(options.url);
+		// The wrapper checks this too, but the SDK would report its refusal while connecting as an `SdkError`.
+		assertHttpScheme(url);
 		assertCredentialTransport(url, {
 			hasCredential: Boolean(options.auth),
 			allowInsecureHttp: options.allowInsecureHttp,
@@ -239,7 +259,7 @@ export class McpClient {
 				}
 			};
 		}
-		const transport = new StreamableHTTPClientTransport(url, transportOptions(options.auth));
+		const transport = new StreamableHTTPClientTransport(url, transportOptions(options));
 
 		const requestOptions = McpClient.#requestOptions(options, signal);
 		await client.connect(transport, requestOptions);

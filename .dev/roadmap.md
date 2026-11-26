@@ -4,7 +4,7 @@ No focus set yet.
 
 ## MCP host modules and desktop app
 
-_Priority: not yet set. Phase 5's migration is done: the modules, design documents and tech debt moved from Arranger in [#1](https://github.com/oicr-softeng/conversational-research-environment/pull/1). `apps/desktop` is scaffolded, hardened and signed ad-hoc for macOS. Next: a `fetch` option on both modules, `mcp-client`'s hardening entries and trimming host-core's exported surface, all in [tech debt](tech-debt.md), then packaging, signing, updates and platforms. Phase 3 (`chat`) and Phase 4 (`eval`) stay deferred._
+_Priority: not yet set. Phase 5's migration is done: the modules, design documents and tech debt moved from Arranger in [#1](https://github.com/oicr-softeng/conversational-research-environment/pull/1). `apps/desktop` is scaffolded, hardened and signed ad-hoc for macOS. Both modules take a `fetch`, as [`fetch-option.md`](docs/mcp-host/fetch-option.md) decides. Next: `mcp-client`'s hardening entries and trimming host-core's exported surface, both in [tech debt](tech-debt.md); connecting host-core to the app's main process, with the function that hands both modules `net.fetch` and its Electron check; then packaging, signing, updates and platforms. Phase 3 (`chat`) and Phase 4 (`eval`) stay deferred._
 
 `mcp-client` and `mcp-host-core` connect to MCP servers, run a model through a tool-calling loop, and put every server confirmation in front of a person. `apps/desktop`, the CRE's Electron app, is built on them.
 

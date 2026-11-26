@@ -1,5 +1,10 @@
 // What a consumer configures an `McpHost` with, and the checks `McpHost.create` runs on it before anything connects.
-import { assertCredentialTransport, type McpClientOptions } from '@overture-stack/mcp-client';
+import {
+	assertCredentialTransport,
+	assertHttpScheme,
+	type Fetch,
+	type McpClientOptions,
+} from '@overture-stack/mcp-client';
 
 import { type ApprovalCall } from './answers.js';
 import { type APPROVAL_DECISIONS } from './constants.js';
@@ -30,7 +35,7 @@ export type ServerConfig = {
 	 */
 	containsOnlyOpenData?: boolean;
 	/** Passed to `McpClient.connect`; host-core supplies the rest. */
-	connection: Omit<McpClientOptions, 'clientInfo' | 'inputResolver' | 'changeNotifications' | 'onError'>;
+	connection: Omit<McpClientOptions, 'clientInfo' | 'inputResolver' | 'changeNotifications' | 'onError' | 'fetch'>;
 	/** Re-read this server's tools between turns when it reports a change. Off by default. */
 	changeNotifications?: boolean;
 };
@@ -83,6 +88,13 @@ export type McpHostOptions = {
 	state?: unknown;
 	/** This host's name and version, sent to each server. */
 	clientInfo: McpClientOptions['clientInfo'];
+	/**
+	 * The `fetch` every server's requests go through. One for the host, so no server's requests can miss it. The
+	 * provider takes its own, in its constructor.
+	 *
+	 * @defaultValue The global `fetch`
+	 */
+	fetch?: Fetch;
 };
 
 /** What the person carried out of another conversation, through their own action. */
@@ -104,7 +116,8 @@ export type RunInput =
  * here rather than a run that misbehaves later.
  *
  * @param options - The options given to `McpHost.create`.
- * @throws `InsecureTransportError`, a `TypeError`, when a server's `auth` would go over plain HTTP to a non-loopback
+ * @throws `UnsupportedSchemeError`, a `TypeError`, when a server's URL is not `http:` or `https:`.
+ * `InsecureTransportError`, a `TypeError`, when a server's `auth` would go over plain HTTP to a non-loopback
  * host without `allowInsecureHttp`. `TypeError` for a missing or repeated server key, an invalid server URL, a
  * non-boolean `containsOnlyOpenData`, a missing approval policy, a limit or window that is not positive, a
  * `maxOutputTokens` that is not a positive whole number below `contextWindow.tokens`, a timeout a Node timer cannot
@@ -119,9 +132,11 @@ export const validateOptions = (options: McpHostOptions): void => {
 	if (options.servers.some(({ containsOnlyOpenData }) => ![undefined, true, false].includes(containsOnlyOpenData))) {
 		throw new TypeError("A server's containsOnlyOpenData must be true or false");
 	}
-	// `McpClient.connect` checks this too, but checking here refuses before any server connects.
+	// `McpClient.connect` checks these too, but checking here refuses before any server connects.
 	for (const { connection } of options.servers) {
-		assertCredentialTransport(new URL(connection.url), {
+		const url = new URL(connection.url);
+		assertHttpScheme(url);
+		assertCredentialTransport(url, {
 			hasCredential: Boolean(connection.auth),
 			allowInsecureHttp: connection.allowInsecureHttp,
 		});

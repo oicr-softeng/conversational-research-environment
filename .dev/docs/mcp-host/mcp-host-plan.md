@@ -629,6 +629,14 @@ Read from the `@modelcontextprotocol/client` 2.3.1 source. Paths are in the SDK 
 | `cacheHints` sets `ttlMs` and `cacheScope`; `handler.notify` publishes list changes                                                                           | `packages/server/src/server/server.ts`, `packages/server/src/server/createMcpHandler.ts`            |
 | Licence: Apache-2.0 for new contributions, MIT for those not relicensed; no NOTICE file                                                                       | `LICENSE`                                                                                           |
 
+Read from the published `@modelcontextprotocol/client` 2.4.0 package, for the `fetch` option ([`fetch-option.md`](fetch-option.md)). Paths are in the package's `dist/`.
+
+| Claim used by the `fetch` option                                                                                                                                                                                   | Where                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The Streamable HTTP transport sends every request through its `fetch` option, including the OAuth discovery, registration and token requests it makes for an `authProvider`, and the `subscriptions/listen` stream | `StreamableHTTPClientTransport` in `index.mjs`: `_fetch` for requests and streams, and `_fetchWithInit`, built from the same `fetch`, for OAuth. `mcp-client`'s `a given fetch` tests confirm it |
+| While fetching protected-resource metadata, a failure that is not a `TypeError` is swallowed, and the server's own origin is taken as the authorization server                                                     | `discoverOAuthServerInfo` and `authInternal`, `public-CvV4ZHkX.mjs`                                                                                                                              |
+| A `fetch` that rejects while the client connects is reported as an `SdkError`, "Version negotiation probe failed", with the rejection as its `cause`                                                               | `Client.connect`, `public-CvV4ZHkX.mjs`                                                                                                                                                          |
+
 ---
 
 ## 5. Open Questions
